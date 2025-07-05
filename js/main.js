@@ -29,26 +29,32 @@ window.addEventListener('DOMContentLoaded', async function(){
         sphere.position = new BABYLON.Vector3(50, 50, 20);
         sphere.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
 
-        // Камера в стиле "Dota"
-        const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
-        camera.setPosition(new BABYLON.Vector3(0, 100, 0));
-        camera.beta = 1.2; // Угол наклона (ближе к 0 - вид сверху)
-        camera.radius = 40; // Дистанция от цели
+        // Камера в стиле "Dota" / MMORPG
+        const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", -Math.PI / 2, 1.2, 40, sphere.position, scene);
         camera.attachControl(canvas, true);
+
+        // Ограничения для камеры
+        camera.lowerRadiusLimit = 15;  // Минимальный зум
+        camera.upperRadiusLimit = 60;  // Максимальный зум
+        camera.lowerBetaLimit = 0.8;   // Минимальный угол (чтобы не смотреть ровно сверху)
+        camera.upperBetaLimit = 1.4; // Максимальный угол (чтобы не смотреть ровно сбоку)
+
+        // Включение коллизий для камеры, чтобы она не проходила сквозь объекты
+        camera.checkCollisions = true;
+        camera.collisionRadius = new BABYLON.Vector3(1, 1, 1);
         
         // Управление
         const inputMap = {};
         scene.actionManager = new BABYLON.ActionManager(scene);
         scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
-            inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type == "keydown";
+            inputMap[evt.sourceEvent.key.toLowerCase()] = true;
         }));
         scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
-            inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type == "keydown";
+            inputMap[evt.sourceEvent.key.toLowerCase()] = false;
         }));
 
         // Конфигурация
         const playerSpeed = 0.3;
-        const playerRotationSpeed = 0.05;
         const jumpForce = 0.2;
         const gravity = -0.015;
         let verticalVelocity = 0;
@@ -56,22 +62,32 @@ window.addEventListener('DOMContentLoaded', async function(){
         scene.onBeforeRenderObservable.add(() => {
             // Камера всегда смотрит на персонажа
             camera.target.copyFrom(sphere.position);
-            console.log(inputMap, 'inputMap');
-            // Вращение
-            if (inputMap["a"]) {
-                sphere.rotation.y -= playerRotationSpeed;
-            }
-            if (inputMap["d"]) {
-                sphere.rotation.y += playerRotationSpeed;
-            }
 
-            // Движение
-            const forwardDirection = sphere.getDirection(new BABYLON.Vector3(0, 0, 1));
+            // Camera-relative movement
+            const cameraForward = camera.getDirection(new BABYLON.Vector3(0, 0, 1));
+            const cameraRight = camera.getDirection(new BABYLON.Vector3(1, 0, 0));
+            const forward = new BABYLON.Vector3(cameraForward.x, 0, cameraForward.z).normalize();
+            const right = new BABYLON.Vector3(cameraRight.x, 0, cameraRight.z).normalize();
+
+            let moveDirection = BABYLON.Vector3.Zero();
             if (inputMap["w"]) {
-                sphere.moveWithCollisions(forwardDirection.scale(playerSpeed));
+                moveDirection.addInPlace(forward);
             }
             if (inputMap["s"]) {
-                sphere.moveWithCollisions(forwardDirection.scale(-playerSpeed));
+                moveDirection.subtractInPlace(forward);
+            }
+            if (inputMap["a"]) {
+                moveDirection.subtractInPlace(right);
+            }
+            if (inputMap["d"]) {
+                moveDirection.addInPlace(right);
+            }
+
+            if (moveDirection.lengthSquared() > 0) {
+                moveDirection.normalize();
+                sphere.moveWithCollisions(moveDirection.scale(playerSpeed));
+                // Rotate sphere to face movement direction
+                sphere.rotation.y = Math.atan2(moveDirection.x, moveDirection.z);
             }
 
             // Проверка земли с помощью луча
