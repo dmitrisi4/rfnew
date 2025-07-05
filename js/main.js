@@ -26,21 +26,16 @@ window.addEventListener('DOMContentLoaded', async function(){
 
         // Персонаж
         const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 1, segments: 32}, scene);
-        sphere.position = new BABYLON.Vector3(0, 50, 0);
+        sphere.position = new BABYLON.Vector3(50, 50, 20);
         sphere.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
 
-        // Камера, следующая за персонажем
-        const camera = new BABYLON.FollowCamera("FollowCam", new BABYLON.Vector3(0, 10, -20), scene);
-        camera.radius = 15; // расстояние от персонажа
-        camera.heightOffset = 5; // высота над персонажем
-        camera.rotationOffset = 0; // вращение
-        camera.cameraAcceleration = 0.05;
-        camera.maxCameraSpeed = 10;
-        camera.lockedTarget = sphere; // привязываем к сфере
-        scene.activeCamera = camera;
+        // Камера в стиле "Dota"
+        const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+        camera.setPosition(new BABYLON.Vector3(0, 100, 0));
+        camera.beta = 1.2; // Угол наклона (ближе к 0 - вид сверху)
+        camera.radius = 40; // Дистанция от цели
         camera.attachControl(canvas, true);
-
-
+        
         // Управление
         const inputMap = {};
         scene.actionManager = new BABYLON.ActionManager(scene);
@@ -59,8 +54,10 @@ window.addEventListener('DOMContentLoaded', async function(){
         let verticalVelocity = 0;
 
         scene.onBeforeRenderObservable.add(() => {
+            // Камера всегда смотрит на персонажа
+            camera.target.copyFrom(sphere.position);
+            console.log(inputMap, 'inputMap');
             // Вращение
-            console.log(inputMap); // Не удалять
             if (inputMap["a"]) {
                 sphere.rotation.y -= playerRotationSpeed;
             }
