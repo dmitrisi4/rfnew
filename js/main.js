@@ -25,9 +25,9 @@ window.addEventListener('DOMContentLoaded', async function(){
         });
 
         // Персонаж
-        const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 1, segments: 32}, scene);
+        const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 0.5, segments: 32}, scene);
         sphere.position = new BABYLON.Vector3(50, 50, 20);
-        sphere.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
+        sphere.ellipsoid = new BABYLON.Vector3(0.25, 0.25, 0.25);
 
         // Камера в стиле "Dota" / MMORPG
         const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", -Math.PI / 2, 1.2, 40, sphere.position, scene);
@@ -91,7 +91,7 @@ window.addEventListener('DOMContentLoaded', async function(){
             }
 
             // Проверка земли с помощью луча
-            const ray = new BABYLON.Ray(sphere.position, new BABYLON.Vector3(0, -1, 0), 0.6);
+            const ray = new BABYLON.Ray(sphere.position, new BABYLON.Vector3(0, -1, 0), 0.3);
             const hit = scene.pickWithRay(ray, (mesh) => mesh.checkCollisions);
 
             // Прыжок
@@ -110,7 +110,7 @@ window.addEventListener('DOMContentLoaded', async function(){
 
             // Прилипание к земле
             if (hit.hit && verticalVelocity <= 0) {
-                sphere.position.y = hit.pickedPoint.y + 0.5;
+                sphere.position.y = hit.pickedPoint.y + 0.25;
             }
         });
 
