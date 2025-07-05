@@ -27,7 +27,8 @@ window.addEventListener('DOMContentLoaded', async function(){
         // Персонаж
         const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 0.5, segments: 32}, scene);
         sphere.position = new BABYLON.Vector3(50, 50, 20);
-        sphere.ellipsoid = new BABYLON.Vector3(0.25, 0.25, 0.25);
+        // Делаем эллипсоид тоньше, чтобы он меньше застревал
+        sphere.ellipsoid = new BABYLON.Vector3(0.15, 0.25, 0.15);
 
         // Камера в стиле "Dota" / MMORPG
         const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", -Math.PI / 2, 1.2, 40, sphere.position, scene);
