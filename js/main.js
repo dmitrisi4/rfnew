@@ -30,7 +30,7 @@ window.addEventListener('DOMContentLoaded', async function(){
 
         // Персонаж
         const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 0.5 * scaleFactor, segments: 32}, scene);
-        sphere.position = new BABYLON.Vector3(50 * scaleFactor, 1000 * scaleFactor, 20 * scaleFactor); // Увеличиваем начальную позицию по Y очень сильно
+        sphere.position = new BABYLON.Vector3(60 * scaleFactor, 2000 * scaleFactor, 20 * scaleFactor); // Перемещаем объект по X
         // Делаем эллипсоид тоньше, чтобы он меньше застревал
         sphere.ellipsoid = new BABYLON.Vector3(0.1 * scaleFactor, 0.25 * scaleFactor, 0.1 * scaleFactor);
 
@@ -58,6 +58,36 @@ window.addEventListener('DOMContentLoaded', async function(){
             inputMap[evt.sourceEvent.key.toLowerCase()] = false;
         }));
 
+        let mouseMovementEnabled = true; // Включаем перемещение мышью по умолчанию
+        const toggleButton = document.getElementById('toggleMouseMovement');
+        if (toggleButton) {
+            toggleButton.addEventListener('click', () => {
+                mouseMovementEnabled = !mouseMovementEnabled;
+                toggleButton.textContent = mouseMovementEnabled ? 'Disable Mouse Movement' : 'Enable Mouse Movement';
+                console.log('Mouse movement enabled: ' + mouseMovementEnabled);
+            });
+        }
+
+        // Перемещение объекта по клику мыши
+        scene.onPointerObservable.add((pointerInfo) => {
+            if (mouseMovementEnabled) {
+                switch (pointerInfo.type) {
+                    case BABYLON.PointerEventTypes.POINTERDOWN:
+                        const pickResult = scene.pick(scene.pointerX, scene.pointerY);
+                        if (pickResult.hit && pickResult.pickedMesh) {
+                            // Проверяем, что кликнули не по самому персонажу
+                            if (pickResult.pickedMesh !== sphere) {
+                                // Перемещаем персонажа на X и Z координаты клика, сохраняя его текущую высоту над землей
+                                sphere.position.x = pickResult.pickedPoint.x;
+                                sphere.position.z = pickResult.pickedPoint.z;
+                                // Высота по Y будет скорректирована гравитацией и прилипанием к земле
+                            }
+                        }
+                        break;
+                }
+            }
+        });
+
         // Конфигурация
         const playerSpeed = 0.3 * scaleFactor;
         const jumpForce = 0.2 * scaleFactor;
@@ -75,6 +105,7 @@ window.addEventListener('DOMContentLoaded', async function(){
             const right = new BABYLON.Vector3(cameraRight.x, 0, cameraRight.z).normalize();
 
             let moveDirection = BABYLON.Vector3.Zero();
+            console.log(inputMap);
             if (inputMap["w"]) {
                 moveDirection.addInPlace(forward);
             }
