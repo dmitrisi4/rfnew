@@ -39,10 +39,33 @@ window.addEventListener('DOMContentLoaded', async function(){
         camera.attachControl(canvas, true);
 
         // Ограничения для камеры
-        camera.lowerRadiusLimit = 15 * scaleFactor;  // Минимальный зум
-        camera.upperRadiusLimit = 60 * scaleFactor;  // Максимальный зум
+        const normalLowerRadiusLimit = 15 * scaleFactor;
+        const normalUpperRadiusLimit = 60 * scaleFactor;
+        const farLowerRadiusLimit = 100 * scaleFactor; // Для дальнего зума
+        const farUpperRadiusLimit = 500 * scaleFactor; // Для дальнего зума
+
+        camera.lowerRadiusLimit = normalLowerRadiusLimit;  // Минимальный зум
+        camera.upperRadiusLimit = normalUpperRadiusLimit;  // Максимальный зум
         camera.lowerBetaLimit = 0.8;   // Минимальный угол (чтобы не смотреть ровно сверху)
         camera.upperBetaLimit = 1.4; // Максимальный угол (чтобы не смотреть ровно сбоку)
+
+        let farZoomEnabled = false; // Отключен дальний зум по умолчанию
+        const toggleFarZoomButton = document.getElementById('toggleFarZoom');
+        if (toggleFarZoomButton) {
+            toggleFarZoomButton.addEventListener('click', () => {
+                farZoomEnabled = !farZoomEnabled;
+                if (farZoomEnabled) {
+                    camera.lowerRadiusLimit = farLowerRadiusLimit;
+                    camera.upperRadiusLimit = farUpperRadiusLimit;
+                    toggleFarZoomButton.textContent = 'Disable Far Zoom';
+                } else {
+                    camera.lowerRadiusLimit = normalLowerRadiusLimit;
+                    camera.upperRadiusLimit = normalUpperRadiusLimit;
+                    toggleFarZoomButton.textContent = 'Enable Far Zoom';
+                }
+                console.log('Far zoom enabled: ' + farZoomEnabled);
+            });
+        }
 
         // Включение коллизий для камеры, чтобы она не проходила сквозь объекты
         camera.checkCollisions = true;
