@@ -27,22 +27,24 @@ export class ConfigManager {
                 vsync: true
             },
             
-            // Настройки физики
+            // Настройки физики - оптимизированы для стабильных коллизий
             physics: {
                 enabled: true,
                 gravity: -9.81,
                 timeStep: 1/60,
-                iterations: 10,
-                collisionMargin: 0.01
+                iterations: 15,        // Увеличено с 10 для более точных коллизий
+                collisionMargin: 0.05  // Увеличено с 0.01 для предотвращения проваливания
             },
             
-            // Настройки игрока
+            // Настройки игрока - оптимизированы для плавного движения
             player: {
-                speed: 0.3,
-                jumpForce: 0.2,
+                speed: 0.25,           // Немного снижена для более контролируемого движения
+                jumpForce: 0.25,       // Увеличена для более отзывчивых прыжков
                 mouseSensitivity: 1.0,
                 invertY: false,
-                autoRun: false
+                autoRun: false,
+                groundTolerance: 0.1,  // Новый параметр для определения земли
+                smoothingFactor: 0.3   // Новый параметр для плавности движения
             },
             
             // Настройки камеры
