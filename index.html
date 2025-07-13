@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Babylon.js Game</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="libs/cannon/build/cannon.min.js"></script>
+    <script type="module" src="js/main.js"></script>
 </head>
 <body>
+    <button id="toggleMouseMovement" style="position: absolute; top: 10px; left: 10px; z-index: 100;">Toggle Mouse Movement</button>
+    <button id="toggleFarZoom" style="position: absolute; top: 10px; left: 180px; z-index: 100;">Toggle Far Zoom</button>
+    <button id="toggleFlyMode" style="position: absolute; top: 10px; left: 350px; z-index: 100;">Toggle Fly Mode</button>
     <canvas id="renderCanvas"></canvas>
-    <script src="js/main.js"></script>
 </body>
 </html>
