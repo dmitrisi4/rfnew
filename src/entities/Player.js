@@ -9,7 +9,7 @@ export class Player {
         this.scaleFactor = scaleFactor;
         
         this.mesh = null;
-        this.position = new BABYLON.Vector3(0, 0, 0);
+        this.position = new BABYLON.Vector3(-16, 2, 51);
         this.velocity = new BABYLON.Vector3(0, 0, 0);
         this.verticalVelocity = 0;
         this.isGrounded = false;
@@ -19,6 +19,9 @@ export class Player {
         this.playerSpeed = this.config.get('player.speed') * scaleFactor;
         this.jumpForce = this.config.get('player.jumpForce') * scaleFactor;
         this.gravity = this.config.get('physics.gravity') * scaleFactor;
+        
+        // Отладочные переменные
+        this.f3Pressed = false;
         
         this.init();
     }
@@ -37,18 +40,18 @@ export class Player {
      * Создание меша игрока
      */
     createPlayerMesh() {
-        // Создаем сферу как представление игрока
+        // Создаем сферу как представление игрока (уменьшена на 43.3%)
         this.mesh = BABYLON.MeshBuilder.CreateSphere(
             "player", 
-            { diameter: 0.15 * this.scaleFactor, segments: 32 }, 
+            { diameter: 0.08505 * this.scaleFactor, segments: 32 }, 
             this.scene
         );
         
-        // Настройка коллизий
+        // Настройка коллизий - уменьшенный эллипсоид на 43.3%
         this.mesh.ellipsoid = new BABYLON.Vector3(
-            0.075 * this.scaleFactor, 
-            0.09 * this.scaleFactor, 
-            0.075 * this.scaleFactor
+            0.0567 * this.scaleFactor,   // Уменьшено на 43.3% с 0.1
+            0.06804 * this.scaleFactor,  // Уменьшено на 43.3% с 0.12
+            0.0567 * this.scaleFactor    // Уменьшено на 43.3% с 0.1
         );
         this.mesh.checkCollisions = true;
         
@@ -68,6 +71,53 @@ export class Player {
         // Отключаем физическое тело для игрока, используем только коллизии
         // Физическое тело может конфликтовать с moveWithCollisions
         console.log('🔧 Player physics: using collision system only (no physics impostor)');
+        
+        // Инициализируем отладочные элементы
+        this.debugRays = [];
+        this.debugEllipsoid = null;
+        this.setupDebugVisualization();
+    }
+    
+    /**
+     * Настройка визуализации отладки
+     */
+    setupDebugVisualization() {
+        // Создаем визуализацию эллипсоида коллизий (соответствует уменьшенному размеру)
+        this.debugEllipsoid = BABYLON.MeshBuilder.CreateSphere(
+            "debugEllipsoid", 
+            { 
+                diameterX: this.mesh.ellipsoid.x * 2,
+                diameterY: this.mesh.ellipsoid.y * 2,
+                diameterZ: this.mesh.ellipsoid.z * 2
+            }, 
+            this.scene
+        );
+        
+        const debugMaterial = new BABYLON.StandardMaterial("debugEllipsoidMaterial", this.scene);
+        debugMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0);
+        debugMaterial.alpha = 0.3;
+        debugMaterial.wireframe = true;
+        this.debugEllipsoid.material = debugMaterial;
+        this.debugEllipsoid.setEnabled(false); // Скрыто по умолчанию
+    }
+    
+    /**
+     * Переключение отладочной визуализации
+     */
+    toggleDebugVisualization(enabled) {
+        if (this.debugEllipsoid) {
+            this.debugEllipsoid.setEnabled(enabled);
+        }
+        
+        // Очищаем старые лучи
+        this.debugRays.forEach(ray => ray.dispose());
+        this.debugRays = [];
+        
+        if (enabled) {
+            console.log('🔍 Debug visualization enabled');
+        } else {
+            console.log('🔍 Debug visualization disabled');
+        }
     }
     
     /**
@@ -80,29 +130,50 @@ export class Player {
     }
     
     /**
-     * Поиск земли под игроком
+     * Поиск земли под игроком с множественными лучами
      * @param {Array} worldMeshes - Меши мира для проверки коллизий
      */
     findGround(worldMeshes) {
-        const rayOrigin = this.mesh.position.subtract(
-            new BABYLON.Vector3(0, this.mesh.ellipsoid.y, 0)
-        );
-        const ray = new BABYLON.Ray(
-            rayOrigin, 
-            new BABYLON.Vector3(0, -1, 0), 
-            10 // Увеличиваем дальность луча
-        );
+        // Множественные лучи для более надежного определения земли
+        const rays = [
+            // Центральный луч
+            { offset: new BABYLON.Vector3(0, 0, 0) },
+            // Лучи по углам эллипсоида
+            { offset: new BABYLON.Vector3(0.05 * this.scaleFactor, 0, 0.05 * this.scaleFactor) },
+            { offset: new BABYLON.Vector3(-0.05 * this.scaleFactor, 0, 0.05 * this.scaleFactor) },
+            { offset: new BABYLON.Vector3(0.05 * this.scaleFactor, 0, -0.05 * this.scaleFactor) },
+            { offset: new BABYLON.Vector3(-0.05 * this.scaleFactor, 0, -0.05 * this.scaleFactor) }
+        ];
         
-        const hit = this.scene.pickWithRay(ray, (mesh) => {
-            // Если есть меши мира, используем их
-            if (worldMeshes && worldMeshes.length > 0) {
-                return worldMeshes.includes(mesh) && mesh.checkCollisions && mesh !== this.mesh;
+        let bestHit = null;
+        let closestDistance = Infinity;
+        
+        for (const rayData of rays) {
+            const rayOrigin = this.mesh.position.add(rayData.offset).subtract(
+                new BABYLON.Vector3(0, this.mesh.ellipsoid.y, 0)
+            );
+            const ray = new BABYLON.Ray(
+                rayOrigin, 
+                new BABYLON.Vector3(0, -1, 0), 
+                20 // Увеличена дальность луча с 10 до 20
+            );
+            
+            const hit = this.scene.pickWithRay(ray, (mesh) => {
+                // Если есть меши мира, используем их
+                if (worldMeshes && worldMeshes.length > 0) {
+                    return worldMeshes.includes(mesh) && mesh.checkCollisions && mesh !== this.mesh;
+                }
+                // Иначе используем любые меши с коллизиями (включая тестовую плоскость)
+                return mesh.checkCollisions && mesh !== this.mesh && mesh.name !== 'skyBox';
+            });
+            
+            if (hit.hit && hit.distance < closestDistance) {
+                closestDistance = hit.distance;
+                bestHit = hit;
             }
-            // Иначе используем любые меши с коллизиями (включая тестовую плоскость)
-            return mesh.checkCollisions && mesh !== this.mesh && mesh.name !== 'skyBox';
-        });
+        }
         
-        return hit;
+        return bestHit || { hit: false };
     }
     
     /**
@@ -114,7 +185,7 @@ export class Player {
         
         if (!worldMeshes || worldMeshes.length === 0) {
             // Если нет мешей мира, размещаем на тестовой плоскости
-            const fallbackPosition = new BABYLON.Vector3(-5, 2, 0); // Перемещаем левее
+            const fallbackPosition = new BABYLON.Vector3(-16, 2, 51); // Новая стартовая позиция
             this.setPosition(fallbackPosition);
             this.verticalVelocity = 0;
             console.log('⚠️ No world meshes, placed on test ground');
@@ -122,9 +193,9 @@ export class Player {
         }
         
         const startPosition = new BABYLON.Vector3(
-            -5, // Перемещаем левее по X
+            -16, // Новая стартовая позиция по X
             1000 * this.scaleFactor, 
-            0  // Центр по Z
+            51  // Новая стартовая позиция по Z
         );
         
         // Луч сверху вниз для поиска земли
@@ -150,7 +221,7 @@ export class Player {
             console.log(`🎯 Player placed on ground at: ${groundPosition.toString()}`);
         } else {
             // Запасная позиция на тестовой плоскости
-            const fallbackPosition = new BABYLON.Vector3(-5, 2, 0); // Перемещаем левее
+            const fallbackPosition = new BABYLON.Vector3(-16, 2, 51); // Новая стартовая позиция
             this.setPosition(fallbackPosition);
             this.verticalVelocity = 0;
             console.log('⚠️ Ground not found in world meshes, using fallback position on test ground');
@@ -216,6 +287,20 @@ export class Player {
         
         // Обновляем позицию
         this.position.copyFrom(this.mesh.position);
+        
+        // Обновляем отладочную визуализацию
+        if (this.debugEllipsoid && this.debugEllipsoid.isEnabled()) {
+            this.debugEllipsoid.position.copyFrom(this.mesh.position);
+        }
+        
+        // Переключение отладки клавишей F3
+        if (inputMap['F3'] && !this.f3Pressed) {
+            this.f3Pressed = true;
+            const debugEnabled = this.debugEllipsoid ? this.debugEllipsoid.isEnabled() : false;
+            this.toggleDebugVisualization(!debugEnabled);
+        } else if (!inputMap['F3']) {
+            this.f3Pressed = false;
+        }
     }
     
     /**
@@ -241,13 +326,54 @@ export class Player {
     }
     
     /**
-     * Обновление в обычном режиме
+     * Обновление в обычном режиме с исправленной системой коллизий
      */
     updateNormalMode(inputMap, horizontalMove, worldMeshes, deltaTime) {
         this.mesh.checkCollisions = true;
         
-        // Применяем гравитацию
-        this.verticalVelocity += this.gravity * deltaTime;
+        // Проверка земли ПЕРЕД применением движения
+        const groundHit = this.findGround(worldMeshes);
+        const wasGrounded = this.isGrounded;
+        
+        // Определяем состояние на земле с использованием настроек из конфигурации
+         if (groundHit && groundHit.hit) {
+             const groundDistance = groundHit.distance;
+             const tolerance = this.config.get('player.groundTolerance') * this.scaleFactor;
+             
+             // Если мы близко к земле и падаем или стоим
+             if (groundDistance <= tolerance && this.verticalVelocity <= 0) {
+                 this.isGrounded = true;
+                 this.verticalVelocity = 0;
+                 
+                 // Плавная коррекция позиции только при необходимости
+                 const targetY = groundHit.pickedPoint.y + this.mesh.ellipsoid.y;
+                 const currentY = this.mesh.position.y;
+                 const yDifference = Math.abs(targetY - currentY);
+                 const minCorrection = 0.05 * this.scaleFactor;
+                 const maxCorrection = 0.5 * this.scaleFactor;
+                 
+                 if (yDifference > minCorrection && yDifference < maxCorrection) {
+                     // Плавная интерполяция с настраиваемым фактором сглаживания
+                     const smoothingFactor = this.config.get('player.smoothingFactor');
+                     this.mesh.position.y = BABYLON.Scalar.Lerp(currentY, targetY, smoothingFactor);
+                 }
+             } else {
+                 this.isGrounded = false;
+             }
+         } else {
+             this.isGrounded = false;
+         }
+        
+        // Применяем гравитацию только если не на земле
+        if (!this.isGrounded) {
+            this.verticalVelocity += this.gravity * deltaTime;
+        }
+        
+        // Прыжок
+        if (inputMap[this.config.get('controls.keyBindings.jump')] && this.isGrounded) {
+            this.verticalVelocity = this.jumpForce;
+            this.isGrounded = false;
+        }
         
         // Общее движение
         const totalMove = new BABYLON.Vector3(
@@ -256,41 +382,14 @@ export class Player {
             horizontalMove.z
         );
         
-        // Сохраняем позицию до движения для отладки
-        const positionBefore = this.mesh.position.clone();
-        
-        // Движение с коллизиями
+        // Движение с коллизиями - БЕЗ дополнительной коррекции Y
         this.mesh.moveWithCollisions(totalMove);
         
-        // Проверка земли
-        const groundHit = this.findGround(worldMeshes);
-        
-        if (groundHit.hit) {
-            this.isGrounded = true;
-            
-            if (this.verticalVelocity <= 0) {
-                // Устанавливаем позицию точно на поверхности
-                const newY = groundHit.pickedPoint.y + this.mesh.ellipsoid.y;
-                this.mesh.position.y = newY;
-                this.verticalVelocity = 0;
-                
-                // Логирование для отладки
-                if (Math.abs(positionBefore.y - this.mesh.position.y) > 0.1) {
-                    console.log(`🔧 Ground contact: Y corrected from ${positionBefore.y.toFixed(2)} to ${newY.toFixed(2)}`);
-                }
-            }
-            
-            // Прыжок
-            if (inputMap[this.config.get('controls.keyBindings.jump')]) {
-                this.verticalVelocity = this.jumpForce;
-                this.isGrounded = false;
-            }
-        } else {
-            this.isGrounded = false;
-            // Логирование падения
-            if (this.verticalVelocity < -5) {
-                console.log(`⬇️ Player falling: Y=${this.mesh.position.y.toFixed(2)}, velocity=${this.verticalVelocity.toFixed(2)}`);
-            }
+        // Отладочная информация
+        if (!wasGrounded && this.isGrounded) {
+            console.log(`🎯 Player landed at Y=${this.mesh.position.y.toFixed(2)}`);
+        } else if (this.verticalVelocity < -10) {
+            console.log(`⬇️ Player falling fast: Y=${this.mesh.position.y.toFixed(2)}, velocity=${this.verticalVelocity.toFixed(2)}`);
         }
     }
     
@@ -335,6 +434,15 @@ export class Player {
      * Освобождение ресурсов
      */
     dispose() {
+        // Очищаем отладочные элементы
+        if (this.debugEllipsoid) {
+            this.debugEllipsoid.dispose();
+            this.debugEllipsoid = null;
+        }
+        
+        this.debugRays.forEach(ray => ray.dispose());
+        this.debugRays = [];
+        
         if (this.mesh) {
             // Безопасное удаление физического тела
             if (this.mesh.physicsImpostor) {

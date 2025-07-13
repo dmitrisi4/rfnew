@@ -77,7 +77,7 @@ export class CameraController {
             "arcRotateCamera",
             -Math.PI / 2, // Угол по горизонтали
             Math.PI / 3,  // Угол по вертикали (более пологий)
-            15,           // Расстояние (ближе к объекту)
+            1,           // Расстояние (ближе к объекту)
             new BABYLON.Vector3(0, 2, 0), // Цель на высоте игрока
             this.scene
         );
