@@ -40,18 +40,18 @@ export class Player {
      * Создание меша игрока
      */
     createPlayerMesh() {
-        // Создаем сферу как представление игрока
+        // Создаем сферу как представление игрока (уменьшена на 43.3%)
         this.mesh = BABYLON.MeshBuilder.CreateSphere(
             "player", 
-            { diameter: 0.15 * this.scaleFactor, segments: 32 }, 
+            { diameter: 0.08505 * this.scaleFactor, segments: 32 }, 
             this.scene
         );
         
-        // Настройка коллизий - увеличенный эллипсоид для более надежных коллизий
+        // Настройка коллизий - уменьшенный эллипсоид на 43.3%
         this.mesh.ellipsoid = new BABYLON.Vector3(
-            0.1 * this.scaleFactor,   // Увеличено с 0.075
-            0.12 * this.scaleFactor,  // Увеличено с 0.09
-            0.1 * this.scaleFactor    // Увеличено с 0.075
+            0.0567 * this.scaleFactor,   // Уменьшено на 43.3% с 0.1
+            0.06804 * this.scaleFactor,  // Уменьшено на 43.3% с 0.12
+            0.0567 * this.scaleFactor    // Уменьшено на 43.3% с 0.1
         );
         this.mesh.checkCollisions = true;
         
@@ -82,7 +82,7 @@ export class Player {
      * Настройка визуализации отладки
      */
     setupDebugVisualization() {
-        // Создаем визуализацию эллипсоида коллизий (по умолчанию скрыта)
+        // Создаем визуализацию эллипсоида коллизий (соответствует уменьшенному размеру)
         this.debugEllipsoid = BABYLON.MeshBuilder.CreateSphere(
             "debugEllipsoid", 
             { 
