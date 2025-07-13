@@ -9,7 +9,7 @@ export class Player {
         this.scaleFactor = scaleFactor;
         
         this.mesh = null;
-        this.position = new BABYLON.Vector3(0, 0, 0);
+        this.position = new BABYLON.Vector3(-16, 2, 51);
         this.velocity = new BABYLON.Vector3(0, 0, 0);
         this.verticalVelocity = 0;
         this.isGrounded = false;
@@ -114,7 +114,7 @@ export class Player {
         
         if (!worldMeshes || worldMeshes.length === 0) {
             // Если нет мешей мира, размещаем на тестовой плоскости
-            const fallbackPosition = new BABYLON.Vector3(-5, 2, 0); // Перемещаем левее
+            const fallbackPosition = new BABYLON.Vector3(-16, 2, 51); // Новая стартовая позиция
             this.setPosition(fallbackPosition);
             this.verticalVelocity = 0;
             console.log('⚠️ No world meshes, placed on test ground');
@@ -122,9 +122,9 @@ export class Player {
         }
         
         const startPosition = new BABYLON.Vector3(
-            -5, // Перемещаем левее по X
+            -16, // Новая стартовая позиция по X
             1000 * this.scaleFactor, 
-            0  // Центр по Z
+            51  // Новая стартовая позиция по Z
         );
         
         // Луч сверху вниз для поиска земли
@@ -150,7 +150,7 @@ export class Player {
             console.log(`🎯 Player placed on ground at: ${groundPosition.toString()}`);
         } else {
             // Запасная позиция на тестовой плоскости
-            const fallbackPosition = new BABYLON.Vector3(-5, 2, 0); // Перемещаем левее
+            const fallbackPosition = new BABYLON.Vector3(-16, 2, 51); // Новая стартовая позиция
             this.setPosition(fallbackPosition);
             this.verticalVelocity = 0;
             console.log('⚠️ Ground not found in world meshes, using fallback position on test ground');
