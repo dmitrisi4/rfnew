@@ -1,0 +1,14 @@
+{
+  "name": "rfnew",
+  "version": "5.0.0",
+  "description": "This is a simple game developed using the Babylon.js framework.",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx live-server --port=8000 --host=localhost --open=false",
+    "dev": "npx live-server --port=8000 --host=localhost --open=false",
+    "serve": "npx serve . -p 8000",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

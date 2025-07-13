@@ -1,198 +1,292 @@
-window.addEventListener('DOMContentLoaded', async function(){
-    const canvas = document.getElementById('renderCanvas');
-    const engine = new BABYLON.Engine(canvas, true);
+/**
+ * Главный файл приложения
+ * Инициализирует и запускает игру с новой модульной архитектурой
+ */
+import { Game } from '../src/Game.js';
 
-    const createScene = async function () {
-        const scene = new BABYLON.Scene(engine);
-        scene.collisionsEnabled = true; // Включаем коллизии для всей сцены
+// Глобальная переменная для игры
+let game = null;
 
-        const scaleFactor = 10; // Увеличиваем масштаб в 10 раз
-
-        // Освещение
-        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
-
-        // Скайбокс
-        const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", {size:1000.0 * scaleFactor}, scene);
-        const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
-        skyboxMaterial.backFaceCulling = false;
-        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/skybox", scene);
-        skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
-        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
-        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
-        skybox.material = skyboxMaterial;
-
-        // Загрузка модели мира
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", "assets/textures/core/", "hq_bellato.glb", scene);
-        result.meshes.forEach((mesh) => {
-            mesh.checkCollisions = true;
-            mesh.scaling.scaleInPlace(scaleFactor); // Применяем масштабирование к каждой меши
-        });
-
-        // Персонаж
-        const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 0.5 * scaleFactor, segments: 32}, scene);
-        sphere.position = new BABYLON.Vector3(60 * scaleFactor, 2000 * scaleFactor, 20 * scaleFactor); // Перемещаем объект по X
-        // Делаем эллипсоид тоньше, чтобы он меньше застревал
-        sphere.ellipsoid = new BABYLON.Vector3(0.1 * scaleFactor, 0.25 * scaleFactor, 0.1 * scaleFactor);
-
-        // Камера в стиле "Dota" / MMORPG
-        const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", -Math.PI / 2, 1.2, 40 * scaleFactor, sphere.position, scene);
-        camera.attachControl(canvas, true);
-
-        // Ограничения для камеры
-        const normalLowerRadiusLimit = 15 * scaleFactor;
-        const normalUpperRadiusLimit = 60 * scaleFactor;
-        const farLowerRadiusLimit = 100 * scaleFactor; // Для дальнего зума
-        const farUpperRadiusLimit = 500 * scaleFactor; // Для дальнего зума
-
-        camera.lowerRadiusLimit = normalLowerRadiusLimit;  // Минимальный зум
-        camera.upperRadiusLimit = normalUpperRadiusLimit;  // Максимальный зум
-        camera.lowerBetaLimit = 0.8;   // Минимальный угол (чтобы не смотреть ровно сверху)
-        camera.upperBetaLimit = 1.4; // Максимальный угол (чтобы не смотреть ровно сбоку)
-
-        let farZoomEnabled = false; // Отключен дальний зум по умолчанию
-        const toggleFarZoomButton = document.getElementById('toggleFarZoom');
-        if (toggleFarZoomButton) {
-            toggleFarZoomButton.addEventListener('click', () => {
-                farZoomEnabled = !farZoomEnabled;
-                if (farZoomEnabled) {
-                    camera.lowerRadiusLimit = farLowerRadiusLimit;
-                    camera.upperRadiusLimit = farUpperRadiusLimit;
-                    toggleFarZoomButton.textContent = 'Disable Far Zoom';
-                } else {
-                    camera.lowerRadiusLimit = normalLowerRadiusLimit;
-                    camera.upperRadiusLimit = normalUpperRadiusLimit;
-                    toggleFarZoomButton.textContent = 'Enable Far Zoom';
-                }
-                console.log('Far zoom enabled: ' + farZoomEnabled);
-            });
-        }
-
-        // Включение коллизий для камеры, чтобы она не проходила сквозь объекты
-        camera.checkCollisions = true;
-        camera.collisionRadius = new BABYLON.Vector3(1 * scaleFactor, 1 * scaleFactor, 1 * scaleFactor);
+/**
+ * Инициализация и запуск игры
+ */
+async function initGame() {
+    try {
+        console.log('🚀 Starting game initialization...');
         
-        // Управление
-        const inputMap = {};
-        scene.actionManager = new BABYLON.ActionManager(scene);
-        scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
-            inputMap[evt.sourceEvent.key.toLowerCase()] = true;
-        }));
-        scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
-            inputMap[evt.sourceEvent.key.toLowerCase()] = false;
-        }));
+        // Создаем экземпляр игры
+        game = new Game('renderCanvas');
+        
+        // Инициализируем игру
+        await game.init();
+        
+        // Запускаем игру
+        game.start();
+        
+        // Настраиваем глобальные обработчики
+        setupGlobalHandlers();
+        
+        console.log('✅ Game started successfully!');
+        
+    } catch (error) {
+        console.error('❌ Failed to start game:', error);
+        showErrorMessage('Failed to initialize game: ' + error.message);
+    }
+}
 
-        let mouseMovementEnabled = true; // Включаем перемещение мышью по умолчанию
-        const toggleButton = document.getElementById('toggleMouseMovement');
-        if (toggleButton) {
-            toggleButton.addEventListener('click', () => {
-                mouseMovementEnabled = !mouseMovementEnabled;
-                toggleButton.textContent = mouseMovementEnabled ? 'Disable Mouse Movement' : 'Enable Mouse Movement';
-                console.log('Mouse movement enabled: ' + mouseMovementEnabled);
+/**
+ * Настройка глобальных обработчиков
+ */
+function setupGlobalHandlers() {
+    // Обработчик закрытия страницы
+    window.addEventListener('beforeunload', () => {
+        if (game) {
+            game.save(); // Автосохранение
+            game.dispose();
+        }
+    });
+    
+    // Обработчик потери фокуса
+    window.addEventListener('blur', () => {
+        if (game && game.getGameState().isRunning) {
+            game.togglePause();
+        }
+    });
+    
+    // Обработчик получения фокуса
+    window.addEventListener('focus', () => {
+        if (game && game.getGameState().isPaused) {
+            // Не возобновляем автоматически, пользователь сам решит
+        }
+    });
+    
+    // Обработчик ошибок
+    window.addEventListener('error', (event) => {
+        console.error('💥 Global error:', event.error);
+        const errorMessage = event.error && event.error.message ? event.error.message : 'Unknown error';
+        showErrorMessage('An error occurred: ' + errorMessage);
+    });
+    
+    // Обработчик необработанных промисов
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('💥 Unhandled promise rejection:', event.reason);
+        showErrorMessage('Promise error: ' + event.reason);
+    });
+}
+
+/**
+ * Показать сообщение об ошибке
+ * @param {string} message - Сообщение об ошибке
+ */
+function showErrorMessage(message) {
+    // Создаем простое модальное окно для ошибок
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 0, 0, 0.9);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 10000;
+        max-width: 400px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+    `;
+    
+    errorDiv.innerHTML = `
+        <h3>Error</h3>
+        <p>${message}</p>
+        <button onclick="this.parentElement.remove()" style="
+            background: white;
+            color: red;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        ">Close</button>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    // Автоматическое удаление через 10 секунд
+    setTimeout(() => {
+        if (errorDiv.parentElement) {
+            errorDiv.remove();
+        }
+    }, 10000);
+}
+
+/**
+ * Показать экран загрузки
+ */
+function showLoadingScreen() {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loadingScreen';
+    loadingDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        color: white;
+        font-family: Arial, sans-serif;
+    `;
+    
+    loadingDiv.innerHTML = `
+        <div style="text-align: center;">
+            <h1 style="margin-bottom: 20px; font-size: 2.5em;">🎮 RF Game</h1>
+            <div style="
+                width: 50px;
+                height: 50px;
+                border: 3px solid rgba(255,255,255,0.3);
+                border-top: 3px solid white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+            "></div>
+            <p style="font-size: 1.2em; margin-top: 20px;">Loading...</p>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-top: 10px;">Initializing game systems</p>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    `;
+    
+    document.body.appendChild(loadingDiv);
+}
+
+/**
+ * Скрыть экран загрузки
+ */
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.opacity = '0';
+        loadingScreen.style.transition = 'opacity 0.5s ease-out';
+        setTimeout(() => {
+            loadingScreen.remove();
+        }, 500);
+    }
+}
+
+/**
+ * Проверка поддержки WebGL
+ */
+function checkWebGLSupport() {
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        return !!gl;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Проверка системных требований
+ */
+function checkSystemRequirements() {
+    const requirements = {
+        webgl: checkWebGLSupport(),
+        canvas: !!document.createElement('canvas').getContext,
+        localStorage: typeof Storage !== 'undefined',
+        es6: typeof Symbol !== 'undefined'
+    };
+    
+    const unsupported = Object.entries(requirements)
+        .filter(([key, supported]) => !supported)
+        .map(([key]) => key);
+    
+    if (unsupported.length > 0) {
+        throw new Error(`Unsupported features: ${unsupported.join(', ')}. Please update your browser.`);
+    }
+    
+    return true;
+}
+
+/**
+ * Основная функция запуска
+ */
+async function main() {
+    try {
+        // Показываем экран загрузки
+        showLoadingScreen();
+        
+        // Проверяем системные требования
+        checkSystemRequirements();
+        
+        // Ждем загрузки DOM
+        if (document.readyState === 'loading') {
+            await new Promise(resolve => {
+                document.addEventListener('DOMContentLoaded', resolve);
             });
         }
+        
+        // Небольшая задержка для показа экрана загрузки
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Инициализируем игру
+        await initGame();
+        
+        // Скрываем экран загрузки
+        hideLoadingScreen();
+        
+    } catch (error) {
+        hideLoadingScreen();
+        console.error('💥 Failed to start application:', error);
+        showErrorMessage('Failed to start application: ' + error.message);
+    }
+}
 
-        // Перемещение объекта по клику мыши
-        scene.onPointerObservable.add((pointerInfo) => {
-            if (mouseMovementEnabled) {
-                switch (pointerInfo.type) {
-                    case BABYLON.PointerEventTypes.POINTERDOWN:
-                        const pickResult = scene.pick(scene.pointerX, scene.pointerY);
-                        if (pickResult.hit && pickResult.pickedMesh) {
-                            // Проверяем, что кликнули не по самому персонажу
-                            if (pickResult.pickedMesh !== sphere) {
-                                // Перемещаем персонажа на X и Z координаты клика, сохраняя его текущую высоту над землей
-                                sphere.position.x = pickResult.pickedPoint.x;
-                                sphere.position.z = pickResult.pickedPoint.z;
-                                // Высота по Y будет скорректирована гравитацией и прилипанием к земле
-                            }
-                        }
-                        break;
-                }
-            }
-        });
+// Экспортируем функции для глобального доступа
+window.gameAPI = {
+    getGame: () => game,
+    restart: async () => {
+        if (game) {
+            game.dispose();
+        }
+        await initGame();
+    },
+    save: () => {
+        if (game) {
+            game.save();
+        }
+    },
+    load: () => {
+        if (game) {
+            game.load();
+        }
+    },
+    reset: () => {
+        if (game) {
+            game.reset();
+        }
+    },
+    togglePause: () => {
+        if (game) {
+            game.togglePause();
+        }
+    },
+    getStats: () => {
+        return game ? game.getStats() : null;
+    },
+    getGameState: () => {
+        return game ? game.getGameState() : null;
+    }
+};
 
-        // Конфигурация
-        const playerSpeed = 0.3 * scaleFactor;
-        const jumpForce = 0.2 * scaleFactor;
-        const gravity = -0.015 * scaleFactor;
-        let verticalVelocity = 0;
-
-        scene.onBeforeRenderObservable.add(() => {
-            // Камера всегда смотрит на персонажа
-            camera.target.copyFrom(sphere.position);
-
-            // Camera-relative movement
-            const cameraForward = camera.getDirection(new BABYLON.Vector3(0, 0, 1));
-            const cameraRight = camera.getDirection(new BABYLON.Vector3(1, 0, 0));
-            const forward = new BABYLON.Vector3(cameraForward.x, 0, cameraForward.z).normalize();
-            const right = new BABYLON.Vector3(cameraRight.x, 0, cameraRight.z).normalize();
-
-            let moveDirection = BABYLON.Vector3.Zero();
-            console.log(inputMap);
-            if (inputMap["w"]) {
-                moveDirection.addInPlace(forward);
-            }
-            if (inputMap["s"]) {
-                moveDirection.subtractInPlace(forward);
-            }
-            if (inputMap["a"]) {
-                moveDirection.subtractInPlace(right);
-            }
-            if (inputMap["d"]) {
-                moveDirection.addInPlace(right);
-            }
-
-            if (moveDirection.lengthSquared() > 0) {
-                moveDirection.normalize();
-                sphere.moveWithCollisions(moveDirection.scale(playerSpeed));
-                // Rotate sphere to face movement direction
-                sphere.rotation.y = Math.atan2(moveDirection.x, moveDirection.z);
-            }
-
-            // Проверка земли с помощью луча
-            console.log("Sphere Y before gravity/sticking: " + sphere.position.y);
-            const ray = new BABYLON.Ray(sphere.position, new BABYLON.Vector3(0, -1, 0), 2000 * scaleFactor); // Увеличиваем длину луча для обнаружения земли
-            const hit = scene.pickWithRay(ray, (mesh) => mesh.checkCollisions);
-
-            if (hit.hit) {
-                console.log("Ray hit! Picked Point Y: " + hit.pickedPoint.y);
-            } else {
-                console.log("Ray did not hit anything.");
-            }
-
-            // Прыжок
-            if (hit.hit && inputMap[" "]) {
-                verticalVelocity = jumpForce;
-            }
-
-            // Гравитация
-            if (!hit.hit) {
-                verticalVelocity += gravity;
-            } else {
-                verticalVelocity = 0;
-            }
-            
-            sphere.position.y += verticalVelocity;
-
-            // Прилипание к земле
-            if (hit.hit && verticalVelocity <= 0) {
-                sphere.position.y = hit.pickedPoint.y + sphere.ellipsoid.y;
-            }
-            console.log("Sphere Y after gravity/sticking: " + sphere.position.y);
-        });
-
-        return scene;
-    };
-
-    createScene().then(scene => {
-        engine.runRenderLoop(function () {
-            if (scene) {
-                scene.render();
-            }
-        });
-    });
-
-    window.addEventListener('resize', function () {
-        engine.resize();
-    });
-});
+// Запускаем приложение
+main();
